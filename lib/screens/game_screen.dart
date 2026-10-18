@@ -1,3 +1,4 @@
+
 part of '../main.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -34,9 +35,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void pick(int i) {
-    if (answered) {
-      return;
-    }
+    if (answered) return;
 
     final ok = i == qs[index].answer;
 
@@ -59,72 +58,72 @@ class _QuizScreenState extends State<QuizScreen> {
         answered = false;
         selected = null;
       });
-    } else {
-      final pct = score / (qs.length * 100);
-      final s = pct >= .9
-          ? 3
-          : pct >= .6
-              ? 2
-              : pct > 0
-                  ? 1
-                  : 0;
+      return;
+    }
 
-      if (lives > 0) {
-        await widget.store.finish(
-          widget.level,
-          score,
-          s,
-        );
-      }
+    final pct = score / (qs.length * 5);
 
-      if (!mounted) {
-        return;
-      }
+    final stars = pct >= .9
+        ? 3
+        : pct >= .6
+            ? 2
+            : pct > 0
+                ? 1
+                : 0;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (c) => AlertDialog(
-          backgroundColor: const Color(0xFF102A43),
-          title: Text(
-            lives > 0 ? 'MISI SELESAI!' : 'NYAWA HABIS',
-            textAlign: TextAlign.center,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                lives > 0
-                    ? Icons.emoji_events_rounded
-                    : Icons.heart_broken_rounded,
-                size: 70,
-                color: lives > 0 ? orange : Colors.redAccent,
+    if (lives > 0) {
+      await widget.store.finish(
+        widget.level,
+        score,
+        stars,
+      );
+    }
+
+    if (!mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF102A43),
+        title: Text(
+          lives > 0 ? 'MISI SELESAI!' : 'NYAWA HABIS',
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              lives > 0
+                  ? Icons.emoji_events_rounded
+                  : Icons.heart_broken_rounded,
+              size: 70,
+              color: lives > 0 ? orange : Colors.redAccent,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              lives > 0
+                  ? '${'★' * stars}${'☆' * (3 - stars)}\nSkor $score'
+                  : 'Pelajari panduan lalu coba lagi.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 12),
-              Text(
-                lives > 0
-                    ? '${'★' * s}${'☆' * (3 - s)}\nSkor $score'
-                    : 'Pelajari panduan lalu coba lagi.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(c);
-                Navigator.pop(context);
-              },
-              child: const Text('KEMBALI KE PETA'),
             ),
           ],
         ),
-      );
-    }
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.pop(context);
+            },
+            child: const Text('KEMBALI KE PETA'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -213,8 +212,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       backgroundColor: color?.withValues(alpha: .18),
                       foregroundColor: cream,
                       side: BorderSide(
-                        color: color ??
-                            const Color(0xFF34617D),
+                        color: color ?? const Color(0xFF34617D),
                         width: 2,
                       ),
                       minimumSize: const Size.fromHeight(54),
@@ -243,9 +241,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         selected == q.answer
                             ? Icons.check_circle
                             : Icons.info,
-                        color: selected == q.answer
-                            ? lime
-                            : orange,
+                        color: selected == q.answer ? lime : orange,
                       ),
 
                       const SizedBox(width: 10),

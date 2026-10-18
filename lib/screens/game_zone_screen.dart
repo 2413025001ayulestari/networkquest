@@ -1,3 +1,4 @@
+
 part of '../main.dart';
 
 class GameZone extends StatefulWidget {
@@ -13,72 +14,125 @@ class GameZone extends StatefulWidget {
 }
 
 class _GameZoneState extends State<GameZone> {
-  static const words = {
+  // Lima soal yang tersedia dalam permainan.
+  static const Map<String, String> words = {
     'ROUTER': 'Penghubung antarjaringan',
     'SWITCH': 'Penghubung perangkat di LAN',
-    'FIREWALL': 'Penyaring lalu lintas',
-    'SUBNET': 'Pembagian jaringan',
-    'SERVER': 'Penyedia layanan',
+    'FIREWALL': 'Penyaring lalu lintas jaringan',
+    'SUBNET': 'Pembagian jaringan menjadi jaringan kecil',
+    'SERVER': 'Penyedia layanan dalam jaringan',
+  };
+
+  // Gambar untuk setiap soal.
+  static const Map<String, String> images = {
+    'ROUTER': 'assets/images/game_zone/router.png',
+    'SWITCH': 'assets/images/game_zone/switch.png',
+    'FIREWALL': 'assets/images/game_zone/firewall.png',
+    'SUBNET': 'assets/images/game_zone/subnet.png',
+    'SERVER': 'assets/images/game_zone/server.png',
   };
 
   late String word;
   late List<String> letters;
+
+  // Urutan soal diacak satu kali agar tidak berulang.
+  late List<String> questionOrder;
 
   int round = 0;
   int score = 0;
 
   String answer = '';
 
+  // Menyimpan indeks tombol huruf yang telah dipilih.
+  final List<int> selectedIndices = [];
+
+  bool isChecking = false;
+  bool isCorrect = false;
+
   @override
   void initState() {
     super.initState();
+
+    // Acak kelima soal satu kali ketika permainan dimulai.
+    questionOrder = words.keys.toList()..shuffle();
+
     newWord();
   }
 
+  // Mengambil soal berdasarkan ronde.
   void newWord() {
-    word = words.keys.elementAt(
-      Random().nextInt(words.length),
-    );
+    word = questionOrder[round];
 
+    // Huruf pilihan diacak untuk setiap soal.
     letters = word.split('')..shuffle();
+
     answer = '';
+    selectedIndices.clear();
+    isChecking = false;
+    isCorrect = false;
   }
 
-  void tap(String letter) {
+  // Memilih huruf berdasarkan indeks tombol.
+  void tap(int index) {
+    if (isChecking ||
+        answer.length >= word.length ||
+        selectedIndices.contains(index)) {
+      return;
+    }
+
     setState(() {
-      answer += letter;
+      selectedIndices.add(index);
+      answer += letters[index];
     });
 
+    // Memeriksa jawaban setelah seluruh kotak terisi.
     if (answer.length == word.length) {
-      if (answer == word) {
-        score += 50;
-      }
+      setState(() {
+        isCorrect = answer == word;
+        isChecking = true;
 
-      Timer(
-        const Duration(milliseconds: 500),
+        if (isCorrect) {
+          score += 50;
+        }
+      });
+
+      Future.delayed(
+        const Duration(milliseconds: 900),
         () {
-          if (!mounted) {
-            return;
-          }
+          if (!mounted) return;
 
-          if (round == 4) {
-            showDialog(
+          if (round == questionOrder.length - 1) {
+            showDialog<void>(
               context: context,
-              builder: (c) => AlertDialog(
-                title: const Text('GAME ZONE SELESAI'),
-                content: Text(
-                  'Skor bonusmu: $score',
-                ),
-                actions: [
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.pop(c);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('SELESAI'),
+              barrierDismissible: false,
+              builder: (dialogContext) {
+                return AlertDialog(
+                  backgroundColor: const Color(0xFF102A43),
+                  title: const Text(
+                    'GAME ZONE SELESAI',
+                    style: TextStyle(
+                      color: lime,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ],
-              ),
+                  content: Text(
+                    'Skor bonusmu: $score',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                    ),
+                  ),
+                  actions: [
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        Navigator.pop(context);
+                      },
+                      child: const Text('SELESAI'),
+                    ),
+                  ],
+                );
+              },
             );
           } else {
             setState(() {
@@ -91,10 +145,18 @@ class _GameZoneState extends State<GameZone> {
     }
   }
 
-  // ============================================================
-  // GAMBAR MASKOT YANG DIPILIH
-  // ============================================================
+  // Menghapus jawaban dan mengaktifkan kembali semua huruf.
+  void resetAnswer() {
+    if (isChecking) return;
 
+    setState(() {
+      answer = '';
+      selectedIndices.clear();
+      letters.shuffle();
+    });
+  }
+
+  // Gambar maskot sesuai pilihan pemain.
   String get mascotImage {
     if (widget.store.mascot == 'PIXEL') {
       return 'assets/images/Foto Pixel.png';
@@ -105,161 +167,284 @@ class _GameZoneState extends State<GameZone> {
 
   @override
   Widget build(BuildContext context) {
+    final String? currentImage = images[word];
+
     return Scaffold(
       body: GridBackground(
-        child: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
-            const AppTitle(
-              'GAME ZONE',
-              'Susun istilah jaringan',
-            ),
-
-            const SizedBox(height: 24),
-
-            Text(
-              'RONDE ${round + 1}/5',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: lime,
-                fontWeight: FontWeight.w900,
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              const AppTitle(
+                'GAME ZONE',
+                'Susun istilah jaringan komputer',
               ),
-            ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 20),
 
-            // ==================================================
-            // MASKOT YANG DIPILIH
-            // ==================================================
+              // Informasi ronde dan skor.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'RONDE ${round + 1}/5',
+                    style: const TextStyle(
+                      color: lime,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    'SKOR: $score',
+                    style: const TextStyle(
+                      color: cyan,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
 
-            Center(
-              child: Container(
-                width: 100,
-                height: 100,
+              const SizedBox(height: 18),
+
+              // Maskot pemain.
+              Center(
+                child: SizedBox(
+                  width: 90,
+                  height: 90,
+                  child: Image.asset(
+                    mascotImage,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint(
+                        'Gagal memuat maskot: $mascotImage',
+                      );
+
+                      return const Icon(
+                        Icons.person,
+                        size: 65,
+                        color: cyan,
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Gambar perangkat sesuai soal.
+              Container(
+                width: double.infinity,
+                height: 220,
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFFFA31A),
+                  color: const Color(0xFF102A43),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: Colors.white,
-                    width: 3,
+                    color: cyan,
+                    width: 1.5,
                   ),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x55FFAA00),
-                      blurRadius: 14,
-                      spreadRadius: 2,
+                      color: Color(0x3322D3EE),
+                      blurRadius: 12,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
-                child: ClipOval(
-                  child: Image.asset(
-                    mascotImage,
-                    width: 94,
-                    height: 94,
-                    fit: BoxFit.cover,
+                child: currentImage == null
+                    ? const Center(
+                        child: Text(
+                          'Gambar tidak ditemukan.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                          ),
+                        ),
+                      )
+                    : Image.asset(
+                        currentImage,
+                        key: ValueKey(currentImage),
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint(
+                            'Gagal memuat gambar: $currentImage',
+                          );
+
+                          return Column(
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.orangeAccent,
+                                size: 42,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Gambar gagal dimuat',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                currentImage,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Petunjuk soal.
+              Text(
+                words[word]!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              const Text(
+                'Susun huruf untuk menemukan jawabannya!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 22),
+
+              // Kotak jawaban.
+              Container(
+                height: 60,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF102A43),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isChecking
+                        ? (isCorrect ? lime : Colors.redAccent)
+                        : cyan,
+                    width: 1.5,
+                  ),
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    answer
+                        .padRight(word.length, '_')
+                        .split('')
+                        .join(' '),
+                    style: const TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w900,
+                      color: lime,
+                      letterSpacing: 2,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-            // ==================================================
-            // PETUNJUK KATA
-            // ==================================================
-
-            Text(
-              words[word]!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ==================================================
-            // JAWABAN
-            // ==================================================
-
-            Container(
-              height: 58,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFF102A43),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: cyan,
+              // Hasil pemeriksaan jawaban.
+              if (isChecking)
+                Text(
+                  isCorrect
+                      ? 'Benar! +50 poin'
+                      : 'Belum tepat! Jawaban: $word',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isCorrect ? lime : Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
-              ),
-              child: Text(
-                answer
-                    .padRight(word.length, '_')
-                    .split('')
-                    .join(' '),
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: lime,
-                ),
-              ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-            // ==================================================
-            // HURUF
-            // ==================================================
+              // Pilihan huruf.
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 9,
+                runSpacing: 9,
+                children: List.generate(
+                  letters.length,
+                  (index) {
+                    final letter = letters[index];
 
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 9,
-              runSpacing: 9,
-              children: letters.map(
-                (letter) {
-                  return SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: answer.length < word.length
-                          ? () => tap(letter)
-                          : null,
-                      style: FilledButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Text(
-                        letter,
-                        style: const TextStyle(
-                          fontSize: 20,
+                    // Identitas tombol ditentukan oleh indeks.
+                    final used =
+                        selectedIndices.contains(index);
+
+                    return SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: !used &&
+                                answer.length < word.length &&
+                                !isChecking
+                            ? () => tap(index)
+                            : null,
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor:
+                              const Color(0xFF176B87),
+                          disabledBackgroundColor:
+                              const Color(0xFF263746),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          letter,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ).toList(),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ==================================================
-            // HAPUS JAWABAN
-            // ==================================================
-
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  answer = '';
-                });
-              },
-              icon: const Icon(
-                Icons.backspace_outlined,
+                    );
+                  },
+                ),
               ),
-              label: const Text(
-                'HAPUS JAWABAN',
+
+              const SizedBox(height: 18),
+
+              // Tombol hapus jawaban.
+              OutlinedButton.icon(
+                onPressed:
+                    !isChecking ? resetAnswer : null,
+                icon: const Icon(
+                  Icons.backspace_outlined,
+                ),
+                label: const Text('HAPUS JAWABAN'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cyan,
+                  side: const BorderSide(color: cyan),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 13,
+                  ),
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );

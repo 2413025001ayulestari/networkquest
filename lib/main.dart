@@ -1,7 +1,10 @@
+
 import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 part 'core/theme.dart';
 part 'data/game_store.dart';
@@ -19,4 +22,18 @@ part 'screens/settings_screen.dart';
 part 'screens/game_zone_screen.dart';
 part 'screens/splash_screen.dart';
 
-void main() => runApp(const NetworkQuestApp());
+final AudioPlayer tapPlayer = AudioPlayer();
+
+Future<void> playTapSound() async {
+  await tapPlayer.setVolume(1.0);
+  await tapPlayer.stop();
+
+  await tapPlayer.play(
+    AssetSource('audio/sound_tab_layar.wav'),
+  );
+}
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const NetworkQuestApp());
+}
