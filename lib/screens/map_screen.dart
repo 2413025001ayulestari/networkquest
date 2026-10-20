@@ -1,3 +1,4 @@
+
 part of '../main.dart';
 
 class MapScreen extends StatefulWidget {
@@ -13,78 +14,57 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController mascotAnimation;
-  late ScrollController scrollController;
+    with TickerProviderStateMixin {
+  late final AnimationController _bobController;
+  late final AnimationController _moveController;
 
-  // ============================================================
-  // POSISI LEVEL
-  // Level 1 paling bawah → Level 7 paling atas
-  // ============================================================
+  int _mascotLevel = 1;
+  int _previousLevel = 1;
 
-  final List<double> levelY = [
-    930,
-    800,
-    670,
-    540,
-    410,
-    280,
-    150,
+  static const List<Offset> _levelPoints = [
+    Offset(.47, .865),
+    Offset(.78, .745),
+    Offset(.24, .65),
+    Offset(.73, .515),
+    Offset(.27, .445),
+    Offset(.325, .27),
+    Offset(.76, .325),
   ];
 
-  final List<double> levelX = [
-    0.50,
-    0.68,
-    0.35,
-    0.67,
-    0.32,
-    0.65,
-    0.48,
+  static const List<String> _levelNames = [
+    'Perangkat',
+    'Penyusunan Jaringan',
+    'IP Address',
+    'Ping',
+    'Troubleshooting',
+    'Topologi & Subnetting',
+    'Ujian Akhir',
   ];
 
   @override
   void initState() {
     super.initState();
 
-    mascotAnimation = AnimationController(
+    _bobController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 750),
     )..repeat(reverse: true);
 
-    scrollController = ScrollController();
+    _moveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    );
 
-    widget.store.addListener(refresh);
+    _mascotLevel = _currentLevel;
+    _previousLevel = _mascotLevel;
 
-    // Saat pertama masuk, langsung tampilkan bagian bawah
-    // supaya LEVEL 1 terlihat.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        scrollController.jumpTo(
-          scrollController.position.maxScrollExtent,
-        );
-      }
-    });
+    widget.store.addListener(_onStoreChanged);
   }
 
-  void refresh() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  int get _currentLevel =>
+      widget.store.unlocked.clamp(1, 7);
 
-  @override
-  void dispose() {
-    widget.store.removeListener(refresh);
-    mascotAnimation.dispose();
-    scrollController.dispose();
-    super.dispose();
-  }
-
-  // ============================================================
-  // GAMBAR MASKOT YANG DIPILIH
-  // ============================================================
-
-  String get mascotImage {
+  String get _mascotAsset {
     if (widget.store.mascot == 'PIXEL') {
       return 'assets/images/Foto Pixel.png';
     }
@@ -92,62 +72,31 @@ class _MapScreenState extends State<MapScreen>
     return 'assets/images/Foto Netto.png';
   }
 
-  // ============================================================
-  // ICON LEVEL
-  // ============================================================
+  void _onStoreChanged() {
+    if (!mounted) return;
 
-  IconData getLevelIcon(int index) {
-    switch (index) {
-      case 0:
-        return Icons.router_rounded;
+    final nextLevel = _currentLevel;
 
-      case 1:
-        return Icons.account_tree_rounded;
-
-      case 2:
-        return Icons.numbers_rounded;
-
-      case 3:
-        return Icons.wifi_tethering_rounded;
-
-      case 4:
-        return Icons.build_circle_rounded;
-
-      case 5:
-        return Icons.hub_rounded;
-
-      case 6:
-        return Icons.emoji_events_rounded;
-
-      default:
-        return Icons.device_hub_rounded;
+    if (nextLevel != _mascotLevel) {
+      _previousLevel = _mascotLevel;
+      _mascotLevel = nextLevel;
+      _moveController.forward(from: 0);
     }
+
+    setState(() {});
   }
 
-  // ============================================================
-  // WARNA LEVEL
-  // ============================================================
-
-  Color levelColor(int index, bool locked) {
-    if (locked) {
-      return const Color(0xFF18344B);
-    }
-
-    if (index == 6) {
-      return const Color(0xFFB8FF2C);
-    }
-
-    return const Color(0xFF21D4FD);
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStoreChanged);
+    _bobController.dispose();
+    _moveController.dispose();
+    super.dispose();
   }
 
-  // ============================================================
-  // BUKA LEVEL
-  // ============================================================
-
-  Future<void> openLevel(int level) async {
-    final locked = level > widget.store.unlocked;
-
-    if (locked) {
+  Future<void> _openLevel(int level) async {
+    if (level > _currentLevel) {
+      _showLockedMessage(level);
       return;
     }
 
@@ -161,560 +110,326 @@ class _MapScreenState extends State<MapScreen>
       ),
     );
 
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     setState(() {});
-
-    // Setelah level selesai, arahkan kamera ke level terbaru.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scrollToCurrentLevel();
-    });
   }
 
-  // ============================================================
-  // SCROLL KE LEVEL YANG SUDAH TERBUKA
-  // ============================================================
+  void _showLockedMessage(int level) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Level $level masih terkunci. '
+            'Selesaikan level sebelumnya!',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF09243A),
+        ),
+      );
+  }
 
-  void scrollToCurrentLevel() {
-    if (!scrollController.hasClients) {
-      return;
+  // KEMBALI KE MENU SEBELUMNYA / BERANDA
+  void _backToHome() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      // Jika halaman peta menjadi halaman pertama,
+      // gunakan halaman beranda sebagai halaman awal aplikasi.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Halaman beranda tidak tersedia di navigation stack.',
+          ),
+        ),
+      );
     }
-
-    final currentLevel =
-        (widget.store.unlocked - 1).clamp(0, 6);
-
-    final targetY = levelY[currentLevel] - 180;
-
-    final maxScroll =
-        scrollController.position.maxScrollExtent;
-
-    final scrollTarget = (levelY[0] - targetY)
-        .clamp(0.0, maxScroll);
-
-    scrollController.animateTo(
-      scrollTarget,
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOutCubic,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentLevel =
-        (widget.store.unlocked - 1).clamp(0, 6);
+    final unlocked = _currentLevel;
+
+    final completedLevels = widget.store.stars
+        .where((stars) => stars > 0)
+        .length;
 
     return Scaffold(
-      body: GridBackground(
-        child: Column(
-          children: [
-            // ==================================================
-            // HEADER
-            // ==================================================
+      backgroundColor: const Color(0xFF03132F),
 
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  18,
-                  12,
-                  18,
-                  8,
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
+      // Area peta dibuat setinggi layar yang tersedia.
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, screenConstraints) {
+            final mapWidth = screenConstraints.maxWidth;
+            final mapHeight = screenConstraints.maxHeight;
+
+            return SizedBox.expand(
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // BACKGROUND PETA FULL SCREEN
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/map_reference.png',
+                      fit: BoxFit.fill,
+                      alignment: Alignment.center,
+                      errorBuilder: (_, __, ___) {
+                        return const _MapAssetFallback();
                       },
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: Colors.white,
+                    ),
+                  ),
+
+                  // TOMBOL KEMBALI DI KIRI ATAS
+                  Positioned(
+                    top: 10,
+                    left: 12,
+                    child: Material(
+                      color: const Color(0xDD061B35),
+                      shape: const CircleBorder(
+                        side: BorderSide(
+                          color: Color(0xFF21D4FD),
+                          width: 1.5,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _backToHome,
+                        child: const SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: Colors.white,
+                            size: 25,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'PETA PETUALANGAN',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Ikuti jalur jaringan sampai ke puncak',
-                            style: TextStyle(
-                              color: Color(0xFF8FAFC5),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                  ),
+
+                  // LEVEL YANG BELUM TERBUKA
+                  for (int i = 0; i < 7; i++)
+                    if (i + 1 > unlocked)
+                      _buildLockOverlay(
+                        level: i + 1,
+                        mapWidth: mapWidth,
+                        mapHeight: mapHeight,
                       ),
+
+                  // AREA KLIK SETIAP LEVEL
+                  for (int i = 0; i < 7; i++)
+                    _buildLevelHitArea(
+                      level: i + 1,
+                      mapWidth: mapWidth,
+                      mapHeight: mapHeight,
                     ),
-                    ScoreChip(
-                      score: widget.store.totalScore,
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
-            // ==================================================
-            // PETA
-            // ==================================================
+                  // MASKOT BERGERAK ANTAR LEVEL
+                  AnimatedBuilder(
+                    animation: Listenable.merge([
+                      _bobController,
+                      _moveController,
+                    ]),
+                    builder: (context, child) {
+                      final from =
+                          _levelPoints[_previousLevel - 1];
 
-            Expanded(
-              child: SingleChildScrollView(
-                controller: scrollController,
-                physics: const BouncingScrollPhysics(),
-                child: SizedBox(
-                  height: 1080,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
+                      final to =
+                          _levelPoints[_mascotLevel - 1];
 
-                      return Stack(
-                        children: [
-                          // ====================================
-                          // JALAN PETA
-                          // ====================================
+                      final t =
+                          Curves.easeInOutCubic.transform(
+                        _moveController.value,
+                      );
 
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: NetworkMapPainter(
-                                levelY: levelY,
-                                levelX: levelX,
-                              ),
-                            ),
-                          ),
+                      final x =
+                          from.dx + (to.dx - from.dx) * t;
 
-                          // ====================================
-                          // DEKORASI JARINGAN
-                          // ====================================
+                      final y =
+                          from.dy + (to.dy - from.dy) * t;
 
-                          const Positioned(
-                            left: 24,
-                            top: 850,
-                            child: NetworkDecoration(
-                              icon: Icons.router_rounded,
-                              label: 'ROUTER',
-                            ),
-                          ),
+                      final bob =
+                          sin(_bobController.value * pi) * 5;
 
-                          const Positioned(
-                            right: 25,
-                            top: 700,
-                            child: NetworkDecoration(
-                              icon: Icons.wifi_rounded,
-                              label: 'WI-FI',
-                            ),
-                          ),
-
-                          const Positioned(
-                            left: 24,
-                            top: 470,
-                            child: NetworkDecoration(
-                              icon: Icons.cable_rounded,
-                              label: 'CABLE',
-                            ),
-                          ),
-
-                          const Positioned(
-                            right: 24,
-                            top: 300,
-                            child: NetworkDecoration(
-                              icon: Icons.dns_rounded,
-                              label: 'SERVER',
-                            ),
-                          ),
-
-                          const Positioned(
-                            left: 22,
-                            top: 190,
-                            child: NetworkDecoration(
-                              icon: Icons.lan_rounded,
-                              label: 'NETWORK',
-                            ),
-                          ),
-
-                          // ====================================
-                          // LABEL START
-                          // ====================================
-
-                          Positioned(
-                            left: width * 0.5 - 50,
-                            top: 1000,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF102A43),
-                                borderRadius:
-                                    BorderRadius.circular(20),
-                                border: Border.all(
-                                  color:
-                                      const Color(0xFF21D4FD),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.flag_rounded,
-                                    size: 16,
-                                    color: Color(0xFF21D4FD),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'START',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight:
-                                          FontWeight.w900,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // ====================================
-                          // SEMUA LEVEL
-                          // ====================================
-
-                          for (int i = 0; i < 7; i++)
-                            _buildLevel(
-                              context,
-                              i,
-                              width,
-                            ),
-
-                          // ====================================
-                          // MASKOT BERGERAK
-                          // ====================================
-
-                          AnimatedBuilder(
-                            animation: mascotAnimation,
-                            builder: (context, child) {
-                              final bounce =
-                                  sin(
-                                        mascotAnimation.value *
-                                            pi,
-                                      ) *
-                                      10;
-
-                              final x =
-                                  width * levelX[currentLevel];
-
-                              final y =
-                                  levelY[currentLevel] -
-                                      78 -
-                                      bounce;
-
-                              return Positioned(
-                                left: x - 42,
-                                top: y,
-                                child: child!,
-                              );
-                            },
-                            child: _buildMascot(),
-                          ),
-                        ],
+                      return Positioned(
+                        left: x * mapWidth - 30,
+                        top: y * mapHeight - 68 - bob,
+                        child: IgnorePointer(
+                          child: _buildMascot(),
+                        ),
                       );
                     },
                   ),
-                ),
-              ),
-            ),
 
-            // ==================================================
-            // PROGRESS
-            // ==================================================
-
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  20,
-                  8,
-                  20,
-                  12,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: LinearProgressIndicator(
-                        value: widget.store.stars
-                                .where((e) => e > 0)
-                                .length /
-                            7,
-                        minHeight: 8,
-                        color: const Color(0xFF21D4FD),
-                        backgroundColor:
-                            const Color(0xFF18344B),
-                        borderRadius:
-                            BorderRadius.circular(10),
+                  // PROGRESS DI BAGIAN BAWAH PETA
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: 12,
+                    child: SafeArea(
+                      top: false,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(20),
+                              child: LinearProgressIndicator(
+                                value: completedLevels / 7,
+                                minHeight: 7,
+                                color: const Color(0xFF21D4FD),
+                                backgroundColor:
+                                    const Color(0xFF18344B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '$completedLevels/7',
+                            style: const TextStyle(
+                              color: Color(0xFF21D4FD),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '${widget.store.stars.where((e) => e > 0).length}/7',
-                      style: const TextStyle(
-                        color: Color(0xFF21D4FD),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
-  // ============================================================
-  // LEVEL CARD / NODE
-  // ============================================================
+  // AREA SENTUH LEVEL
+  Widget _buildLevelHitArea({
+    required int level,
+    required double mapWidth,
+    required double mapHeight,
+  }) {
+    final point = _levelPoints[level - 1];
 
-  Widget _buildLevel(
-    BuildContext context,
-    int index,
-    double width,
-  ) {
-    final level = index + 1;
-
-    final locked = level > widget.store.unlocked;
-    final stars = widget.store.stars[index];
-
-    final x = width * levelX[index];
-    final y = levelY[index];
-
-    final isFinal = index == 6;
+    final width = mapWidth * .39;
+    final height = mapHeight * .085;
 
     return Positioned(
-      left: x - 65,
-      top: y - 65,
-      child: GestureDetector(
-        onTap: locked
-            ? null
-            : () {
-                openLevel(level);
-              },
-        child: SizedBox(
-          width: 130,
-          child: Column(
-            children: [
-              // ================================================
-              // NODE BULAT
-              // ================================================
+      left: (point.dx * mapWidth - width / 2)
+          .clamp(0.0, mapWidth - width),
+      top: (point.dy * mapHeight - height / 2)
+          .clamp(0.0, mapHeight - height),
+      width: width,
+      height: height,
+      child: Semantics(
+        button: true,
+        label: 'Level $level: ${_levelNames[level - 1]}',
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => _openLevel(level),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
 
-              Container(
-                width: isFinal ? 78 : 68,
-                height: isFinal ? 78 : 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: locked
-                      ? const Color(0xFF132D42)
-                      : levelColor(index, locked),
-                  border: Border.all(
-                    color: locked
-                        ? const Color(0xFF31516A)
-                        : Colors.white,
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    if (!locked)
-                      BoxShadow(
-                        color: isFinal
-                            ? const Color(0x88B8FF2C)
-                            : const Color(0x6621D4FD),
-                        blurRadius: 22,
-                        spreadRadius: 3,
-                      ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      locked
-                          ? Icons.lock_rounded
-                          : getLevelIcon(index),
-                      size: isFinal ? 32 : 28,
-                      color: locked
-                          ? Colors.white38
-                          : const Color(0xFF062033),
-                    ),
+  // GEMBOK LEVEL TERKUNCI
+  Widget _buildLockOverlay({
+    required int level,
+    required double mapWidth,
+    required double mapHeight,
+  }) {
+    final point = _levelPoints[level - 1];
 
-                    if (isFinal && !locked)
-                      const Positioned(
-                        top: -5,
-                        child: Icon(
-                          Icons.workspace_premium_rounded,
-                          size: 25,
-                          color: Colors.amber,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 7),
-
-              // ================================================
-              // LABEL LEVEL
-              // ================================================
-
-              Container(
-                width: 130,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xE6102A43),
-                  borderRadius:
-                      BorderRadius.circular(12),
-                  border: Border.all(
-                    color: locked
-                        ? const Color(0xFF244B68)
-                        : isFinal
-                            ? const Color(0xFFB8FF2C)
-                            : const Color(0xFF21D4FD),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'LEVEL $level',
-                      style: TextStyle(
-                        color: locked
-                            ? Colors.white38
-                            : isFinal
-                                ? const Color(0xFFB8FF2C)
-                                : const Color(0xFF21D4FD),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      levelNames[index],
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: locked
-                            ? Colors.white38
-                            : Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-
-                    if (stars > 0 && !locked)
-                      Padding(
-                        padding:
-                            const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '★' * stars,
-                          style: const TextStyle(
-                            color: Colors.amber,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-
-                    if (isFinal)
-                      const Padding(
-                        padding:
-                            EdgeInsets.only(top: 2),
-                        child: Text(
-                          'FINAL MISSION',
-                          style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 8,
-                            fontWeight:
-                                FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+    return Positioned(
+      left: point.dx * mapWidth - 15,
+      top: point.dy * mapHeight - 16,
+      child: IgnorePointer(
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: const Color(0xE6132D42),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFF55738A),
+              width: 1.5,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 8,
               ),
             ],
+          ),
+          child: const Icon(
+            Icons.lock_rounded,
+            size: 17,
+            color: Color(0xFFB5C6D3),
           ),
         ),
       ),
     );
   }
 
-  // ============================================================
-  // MASKOT
-  // ============================================================
-
+  // MASKOT NETTO ATAU PIXEL
   Widget _buildMascot() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 84,
-          height: 84,
+          width: 60,
+          height: 60,
           decoration: BoxDecoration(
+            color: const Color(0xFF062033),
             shape: BoxShape.circle,
-            color: const Color(0xFF102A43),
             border: Border.all(
-              color: const Color(0xFFB8FF2C),
-              width: 3,
+              color: const Color(0xFF21D4FD),
+              width: 2.5,
             ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x7721D4FD),
-                blurRadius: 20,
-                spreadRadius: 4,
+                color: Color(0xAA21D4FD),
+                blurRadius: 18,
+                spreadRadius: 2,
               ),
             ],
           ),
+          padding: const EdgeInsets.all(4),
           child: ClipOval(
-            child: Padding(
-              padding: const EdgeInsets.all(5),
-              child: Image.asset(
-                mascotImage,
-                fit: BoxFit.cover,
-              ),
+            child: Image.asset(
+              _mascotAsset,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) {
+                return const Icon(
+                  Icons.face_retouching_natural,
+                  color: Color(0xFF21D4FD),
+                  size: 35,
+                );
+              },
             ),
           ),
         ),
-
-        const SizedBox(height: 4),
-
+        const SizedBox(height: 2),
         Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: 9,
-            vertical: 4,
+            horizontal: 7,
+            vertical: 3,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFFB8FF2C),
-            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFF21D4FD),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: const Text(
             'KAMU DI SINI',
             style: TextStyle(
               color: Color(0xFF062033),
-              fontSize: 8,
+              fontSize: 7,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -724,249 +439,25 @@ class _MapScreenState extends State<MapScreen>
   }
 }
 
-// ==================================================================
-// DEKORASI JARINGAN
-// ==================================================================
-
-class NetworkDecoration extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const NetworkDecoration({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
+// TAMPILAN CADANGAN JIKA GAMBAR PETA TIDAK DITEMUKAN
+class _MapAssetFallback extends StatelessWidget {
+  const _MapAssetFallback();
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: 0.65,
-      child: Column(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF167AA5),
-              ),
-              color: const Color(0xFF09243A),
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF21D4FD),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF397A99),
-              fontSize: 7,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+    return Container(
+      color: const Color(0xFF03132F),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(24),
+      child: const Text(
+        'Gambar peta tidak ditemukan.\n'
+        'Periksa assets/images/map_reference.png '
+        'dan pubspec.yaml.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Color(0xFF8FAFC5),
+        ),
       ),
     );
-  }
-}
-
-// ==================================================================
-// PAINTER PETA JARINGAN
-// ==================================================================
-
-class NetworkMapPainter extends CustomPainter {
-  final List<double> levelY;
-  final List<double> levelX;
-
-  NetworkMapPainter({
-    required this.levelY,
-    required this.levelX,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // ==============================================================
-    // GRID HALUS
-    // ==============================================================
-
-    final gridPaint = Paint()
-      ..color = const Color(0xFF0B3048)
-      ..strokeWidth = 1;
-
-    for (double x = 0; x < size.width; x += 24) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        gridPaint,
-      );
-    }
-
-    for (double y = 0; y < size.height; y += 24) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        gridPaint,
-      );
-    }
-
-    // ==============================================================
-    // JALAN UTAMA
-    // ==============================================================
-
-    final road = Path();
-
-    for (int i = 0; i < levelY.length; i++) {
-      final point = Offset(
-        size.width * levelX[i],
-        levelY[i],
-      );
-
-      if (i == 0) {
-        road.moveTo(point.dx, point.dy);
-      } else {
-        final previous = Offset(
-          size.width * levelX[i - 1],
-          levelY[i - 1],
-        );
-
-        final middleY =
-            (previous.dy + point.dy) / 2;
-
-        road.cubicTo(
-          previous.dx,
-          middleY,
-          point.dx,
-          middleY,
-          point.dx,
-          point.dy,
-        );
-      }
-    }
-
-    // ==============================================================
-    // BADAN JALAN
-    // ==============================================================
-
-    final roadBase = Paint()
-      ..color = const Color(0xFF102A43)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 28
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    canvas.drawPath(road, roadBase);
-
-    // ==============================================================
-    // TEPI JALAN
-    // ==============================================================
-
-    final roadBorder = Paint()
-      ..color = const Color(0xFF167AA5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    canvas.drawPath(road, roadBorder);
-
-    // ==============================================================
-    // GARIS NEON BIRU DI TENGAH
-    // ==============================================================
-
-    final roadCenter = Paint()
-      ..color = const Color(0xFF21D4FD)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(road, roadCenter);
-
-    // ==============================================================
-    // GARIS PUTUS-PUTUS DI JALAN
-    // ==============================================================
-    
-    final dashPaint = Paint()
-      ..color = const Color(0xFFB8FF2C)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    for (int i = 0; i < levelY.length - 1; i++) {
-      final start = Offset(
-        size.width * levelX[i],
-        levelY[i],
-      );
-
-      final end = Offset(
-        size.width * levelX[i + 1],
-        levelY[i + 1],
-      );
-
-      final dx = end.dx - start.dx;
-      final dy = end.dy - start.dy;
-
-      final distance = sqrt(
-        dx * dx + dy * dy,
-      );
-
-      final steps = (distance / 25).floor();
-
-      for (int j = 0; j < steps; j += 2) {
-        final t1 = j / steps;
-        final t2 = min(
-          (j + 1) / steps,
-          1.0,
-        );
-
-        canvas.drawLine(
-          Offset(
-            start.dx + dx * t1,
-            start.dy + dy * t1,
-          ),
-          Offset(
-            start.dx + dx * t2,
-            start.dy + dy * t2,
-          ),
-          dashPaint,
-        );
-      }
-    }
-
-    // ==============================================================
-    // NODE KECIL DI SEKITAR JALAN
-    // ==============================================================
-
-    final nodePaint = Paint()
-      ..color = const Color(0xFF21D4FD)
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < levelY.length; i++) {
-      final x = size.width * levelX[i];
-      final y = levelY[i];
-
-      canvas.drawCircle(
-        Offset(x - 45, y + 30),
-        3,
-        nodePaint,
-      );
-
-      canvas.drawCircle(
-        Offset(x + 48, y - 28),
-        3,
-        nodePaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant NetworkMapPainter oldDelegate,
-  ) {
-    return oldDelegate.levelY != levelY ||
-        oldDelegate.levelX != levelX;
   }
 }
