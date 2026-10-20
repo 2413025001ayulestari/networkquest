@@ -1,3 +1,4 @@
+
 part of '../main.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -16,6 +17,9 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _loadingController;
 
+  bool _started = false;
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
@@ -25,18 +29,36 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(seconds: 4),
     );
 
-    _loadingController.forward();
-    _navigateToHome();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prepareSplash();
+    });
   }
 
-  Future<void> _navigateToHome() async {
-    await Future.delayed(const Duration(seconds: 4));
+  Future<void> _prepareSplash() async {
+    if (_started || !mounted) return;
+    _started = true;
+
+    try {
+      await precacheImage(
+        const AssetImage('assets/images/network_quest_splash.png'),
+        context,
+      );
+    } catch (error) {
+      debugPrint('Gagal memuat gambar splash: $error');
+    }
 
     if (!mounted) return;
 
+    _loadingController.forward();
+
+    await Future.delayed(const Duration(seconds: 4));
+
+    if (!mounted || _navigated) return;
+    _navigated = true;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 800),
+        transitionDuration: const Duration(milliseconds: 600),
         pageBuilder: (context, animation, secondaryAnimation) {
           return HomeScreen(store: widget.store);
         },
@@ -65,26 +87,23 @@ class _SplashScreenState extends State<SplashScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // GAMBAR UTAMA SPLASH SCREEN
             Positioned.fill(
               child: Image.asset(
                 'assets/images/network_quest_splash.png',
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 alignment: Alignment.center,
-                gaplessPlayback: true,
                 errorBuilder: (context, error, stackTrace) {
-                  debugPrint('Gagal memuat splash screen: $error');
+                  debugPrint('ERROR SPLASH: $error');
 
                   return const ColoredBox(
                     color: Color(0xFF07152F),
                     child: Center(
                       child: Text(
-                        'NETWORK QUEST',
+                        'Gambar splash gagal dimuat',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF55E8FF),
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 16,
                         ),
                       ),
                     ),
@@ -93,7 +112,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            // OVERLAY TIPIS
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -112,11 +130,10 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            // ANIMASI LOADING
             Positioned(
               left: 0,
               right: 0,
-              bottom: 72,
+              bottom: 65,
               child: AnimatedBuilder(
                 animation: _loadingController,
                 builder: (context, child) {
@@ -139,43 +156,32 @@ class _SplashScreenState extends State<SplashScreen>
                           boxShadow: [
                             BoxShadow(
                               color: const Color(0xFF159DFF)
-                                  .withValues(alpha: 0.55),
-                              blurRadius: 15,
-                              spreadRadius: 1,
+                                  .withValues(alpha: 0.45),
+                              blurRadius: 12,
                             ),
                           ],
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: progress,
-                              child: const DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFF12BFFF),
-                                      Color(0xFF55E8FF),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: Colors.transparent,
+                            valueColor:
+                                const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF35D6FF),
                             ),
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 12),
-
                       Text(
                         _loadingText(progress),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Color(0xFFB9D9FF),
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 1.2,
+                          letterSpacing: 1.1,
                           shadows: [
                             Shadow(
                               color: Colors.black,
@@ -190,11 +196,10 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            // VERSI APLIKASI
             const Positioned(
               left: 0,
               right: 0,
-              bottom: 20,
+              bottom: 18,
               child: Center(
                 child: Text(
                   'NETWORK QUEST • v1.0',
@@ -216,21 +221,14 @@ class _SplashScreenState extends State<SplashScreen>
   String _loadingText(double progress) {
     if (progress < 0.25) {
       return 'Menghubungkan jaringan...';
-    }
-
-    if (progress < 0.50) {
+    } else if (progress < 0.50) {
       return 'Menyiapkan perangkat...';
-    }
-
-    if (progress < 0.75) {
+    } else if (progress < 0.75) {
       return 'Memuat misi...';
-    }
-
-    if (progress < 0.95) {
+    } else if (progress < 0.95) {
       return 'Menyiapkan petualangan...';
     }
 
     return 'Siap bermain!';
   }
 }
-
