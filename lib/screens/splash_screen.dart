@@ -14,44 +14,41 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _loadingController;
+  late final AnimationController _loadingController;
 
   @override
   void initState() {
     super.initState();
 
-    // Animasi loading selama 4 detik
     _loadingController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     );
 
     _loadingController.forward();
+    _navigateToHome();
+  }
 
-    // Setelah loading selesai masuk ke Home
-    Timer(const Duration(seconds: 4), () {
-      if (!mounted) {
-        return;
-      }
+  Future<void> _navigateToHome() async {
+    await Future.delayed(const Duration(seconds: 4));
 
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 800),
-          pageBuilder: (_, animation, __) {
-            return HomeScreen(
-              store: widget.store,
-            );
-          },
-          transitionsBuilder: (_, animation, __, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-        ),
-      );
-    });
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 800),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return HomeScreen(store: widget.store);
+        },
+        transitionsBuilder:
+            (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -68,129 +65,136 @@ class _SplashScreenState extends State<SplashScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // =====================================================
-            // GAMBAR SPLASH UTAMA
-            // =====================================================
+            // GAMBAR UTAMA SPLASH SCREEN
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/network_quest_splash.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                gaplessPlayback: true,
+                errorBuilder: (context, error, stackTrace) {
+                  debugPrint('Gagal memuat splash screen: $error');
 
-            Image.asset(
-              'assets/images/network_quest_splash.png',
-              fit: BoxFit.cover,
+                  return const ColoredBox(
+                    color: Color(0xFF07152F),
+                    child: Center(
+                      child: Text(
+                        'NETWORK QUEST',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF55E8FF),
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
 
-            // =====================================================
-            // OVERLAY GELAP TIPIS
-            // =====================================================
-
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.08),
-                  ],
+            // OVERLAY TIPIS
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.18),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
 
-            // =====================================================
-            // LOADING BAR
-            // =====================================================
-
+            // ANIMASI LOADING
             Positioned(
               left: 0,
               right: 0,
               bottom: 72,
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _loadingController,
-                  builder: (context, child) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // BAR LOADING
-                        Container(
-                          width: 255,
-                          height: 20,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF071A35),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: const Color(0xFF2F9EFF),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF159DFF)
-                                    .withValues(alpha: 0.55),
-                                blurRadius: 15,
-                                spreadRadius: 1,
-                              ),
-                            ],
+              child: AnimatedBuilder(
+                animation: _loadingController,
+                builder: (context, child) {
+                  final progress = _loadingController.value;
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 255,
+                        height: 20,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF071A35),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFF2F9EFF),
+                            width: 2,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF159DFF)
+                                  .withValues(alpha: 0.55),
+                              blurRadius: 15,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: FractionallySizedBox(
-                              widthFactor: _loadingController.value,
-                              child: Container(
+                              widthFactor: progress,
+                              child: const DecoratedBox(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  gradient: const LinearGradient(
+                                  gradient: LinearGradient(
                                     colors: [
                                       Color(0xFF12BFFF),
                                       Color(0xFF55E8FF),
                                     ],
                                   ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0xFF1DBEFF),
-                                      blurRadius: 8,
-                                    ),
-                                  ],
                                 ),
                               ),
                             ),
                           ),
                         ),
+                      ),
 
-                        const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                        // TEXT LOADING
-                        Text(
-                          _getLoadingText(
-                            _loadingController.value,
-                          ),
-                          style: const TextStyle(
-                            color: Color(0xFFB9D9FF),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.5,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 5,
-                              ),
-                            ],
-                          ),
+                      Text(
+                        _loadingText(progress),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFB9D9FF),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 5,
+                            ),
+                          ],
                         ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
 
-            // =====================================================
-            // VERSI GAME
-            // =====================================================
-
+            // VERSI APLIKASI
             const Positioned(
-              bottom: 20,
               left: 0,
               right: 0,
+              bottom: 20,
               child: Center(
                 child: Text(
                   'NETWORK QUEST • v1.0',
@@ -209,7 +213,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  String _getLoadingText(double progress) {
+  String _loadingText(double progress) {
     if (progress < 0.25) {
       return 'Menghubungkan jaringan...';
     }
@@ -229,3 +233,4 @@ class _SplashScreenState extends State<SplashScreen>
     return 'Siap bermain!';
   }
 }
+
