@@ -27,6 +27,7 @@ class _QuizScreenState extends State<QuizScreen> {
   void initState() {
     super.initState();
 
+    // Mengambil soal sesuai level yang dipilih.
     qs = [...questions[widget.level - 1]];
 
     if (widget.store.hard) {
@@ -170,10 +171,57 @@ class _QuizScreenState extends State<QuizScreen> {
 
             const SizedBox(height: 26),
 
-            Icon(
-              levelIcons[widget.level - 1],
-              color: cyan,
-              size: 76,
+            // GAMBAR SOAL: IKON ROUTER SUDAH DIHAPUS
+            Center(
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(
+                  maxHeight: 220,
+                  minHeight: 150,
+                ),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF102A43),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF34617D),
+                    width: 2,
+                  ),
+                ),
+                child: q.image != null && q.image!.isNotEmpty
+                    ? Image.asset(
+                        q.image!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint(
+                            'GAGAL MEMUAT GAMBAR: ${q.image}',
+                          );
+                          debugPrint('ERROR: $error');
+
+                          return Center(
+                            child: Text(
+                              'Gambar gagal dimuat.\n'
+                              'Path: ${q.image}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : const Center(
+                        child: Text(
+                          'Path gambar soal belum diatur.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+              ),
             ),
 
             const SizedBox(height: 20),
@@ -243,9 +291,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             : Icons.info,
                         color: selected == q.answer ? lime : orange,
                       ),
-
                       const SizedBox(width: 10),
-
                       Expanded(
                         child: Text(q.fact),
                       ),
