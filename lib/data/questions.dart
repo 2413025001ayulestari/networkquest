@@ -13,8 +13,7 @@ class Question {
     this.fact,
   );
 
-  /// Gambar diambil otomatis dari aset Game Zone yang sudah tersedia.
-  /// Soal yang tidak cocok dengan lima aset akan mengembalikan null.
+  /// Gambar dipilih otomatis berdasarkan topik soal.
   String? get image => _detectGameZoneImage(prompt, options, answer, fact);
 }
 
@@ -29,78 +28,98 @@ String? _detectGameZoneImage(
       ? options[answer].toLowerCase().trim()
       : '';
 
-  // Cocokkan jawaban yang benar terlebih dahulu.
-  if (correct.contains('firewall')) {
+  // Topologi: cek nama topologi terlebih dahulu agar tidak tertukar.
+  if (text.contains('topologi') && text.contains('ring')) {
+    return 'assets/images/game_zone/topology_ring.png';
+  }
+  if (text.contains('topologi') && text.contains('bus')) {
+    return 'assets/images/game_zone/topology_bus.png';
+  }
+  if (text.contains('topologi') && text.contains('mesh')) {
+    return 'assets/images/game_zone/topology_mesh.png';
+  }
+  if (text.contains('topologi') && text.contains('star')) {
+    return 'assets/images/game_zone/topology_star.png';
+  }
+
+  // Kabel dan media transmisi.
+  if (text.contains('crossover')) {
+    return 'assets/images/game_zone/crossover.png';
+  }
+  if (text.contains('straight-through') || text.contains('straight through')) {
+    return 'assets/images/game_zone/straight_through.png';
+  }
+  if (text.contains('fiber optic') || text.contains('serat optik')) {
+    return 'assets/images/game_zone/fiber_optic.png';
+  }
+  if (text.contains('kabel utp') || text.contains('utp') || text.contains('rj-45')) {
+    if (text.contains('rj-45') || text.contains('konektor')) {
+      return 'assets/images/game_zone/rj45.png';
+    }
+    return 'assets/images/game_zone/utp_cable.png';
+  }
+
+  // Materi protokol dan pengujian jaringan.
+  if (text.contains('https') || text.contains('protokol aman') || text.contains('website')) {
+    return 'assets/images/game_zone/https.png';
+  }
+  if (text.contains('ping') || text.contains('icmp') || text.contains('packet loss') ||
+      text.contains('request timed out') || text.contains('ttl')) {
+    return 'assets/images/game_zone/ping_test.png';
+  }
+  if (text.contains('troubleshooting') || text.contains('request timed out') ||
+      text.contains('destination host unreachable') || text.contains('ip conflict') ||
+      text.contains('koneksi gagal') || text.contains('koneksi terganggu')) {
+    return 'assets/images/game_zone/troubleshooting.png';
+  }
+  if (text.contains('dhcp') || text.contains('dns') ||
+      text.contains('nama domain') || text.contains('169.254')) {
+    return 'assets/images/game_zone/dhcp_dns.png';
+  }
+
+  // Perangkat jaringan.
+  if (correct.contains('firewall') || text.contains('firewall') ||
+      text.contains('keamanan jaringan') || text.contains('memfilter paket')) {
     return 'assets/images/game_zone/firewall.png';
   }
-  if (correct == 'router' || correct.contains('gateway')) {
+  if (correct == 'router' || correct.contains('gateway') ||
+      text.contains('router') || text.contains('default gateway') ||
+      text.contains('routing') || text.contains('antarjaringan') ||
+      text.contains('antar jaringan')) {
     return 'assets/images/game_zone/router.png';
   }
-  if (correct == 'switch') {
+  if (correct == 'switch' || text.contains('switch') ||
+      text.contains('port switch') || text.contains('jaringan lokal') ||
+      text.contains('dalam satu lan')) {
     return 'assets/images/game_zone/switch.png';
   }
-  if (correct == 'server' || correct == 'dhcp' || correct == 'dns') {
-    return 'assets/images/game_zone/server.png';
-  }
-  if (correct.contains('subnet') ||
-      correct.contains('ipv4') ||
-      correct.contains('ip address') ||
-      correct.contains('network address') ||
-      correct.contains('broadcast address') ||
-      correct.contains('host usable') ||
-      RegExp(r'^/\d+$').hasMatch(correct)) {
-    return 'assets/images/game_zone/subnet.png';
-  }
-
-  // Jika nama aset tidak ada pada jawaban, cocokkan dengan isi materi.
-  if (text.contains('firewall') ||
-      text.contains('keamanan jaringan') ||
-      text.contains('memfilter paket') ||
-      text.contains('lalu lintas jaringan')) {
-    return 'assets/images/game_zone/firewall.png';
-  }
-
-  if (text.contains('router') ||
-      text.contains('antarjaringan') ||
-      text.contains('antar jaringan') ||
-      text.contains('jaringan yang berbeda') ||
-      text.contains('default gateway') ||
-      text.contains('gateway') ||
-      text.contains('routing')) {
-    return 'assets/images/game_zone/router.png';
-  }
-
-  if (text.contains('switch') ||
-      text.contains('jaringan lokal') ||
-      text.contains('dalam satu lan') ||
-      text.contains('port switch') ||
-      RegExp(r'\blan\b').hasMatch(text)) {
-    return 'assets/images/game_zone/switch.png';
-  }
-
-  if (text.contains('server') ||
-      text.contains('dhcp') ||
-      text.contains('dns') ||
-      text.contains('layanan jaringan') ||
+  if (correct == 'server' || correct == 'dhcp' || correct == 'dns' ||
+      text.contains('server') || text.contains('layanan jaringan') ||
       text.contains('layanan pemberi ip otomatis')) {
     return 'assets/images/game_zone/server.png';
   }
+  if (text.contains('access point') || text.contains('wi-fi') ||
+      text.contains('wireless') || text.contains('nirkabel')) {
+    return 'assets/images/game_zone/access_point.png';
+  }
+  if (text.contains('modem') || correct == 'modem') {
+    return 'assets/images/game_zone/modem.png';
+  }
+  if (text.contains('client') || text.contains('komputer lain') ||
+      text.contains('komputer dalam jaringan')) {
+    return 'assets/images/game_zone/client_pc.png';
+  }
 
-  if (text.contains('subnet') ||
-      text.contains('subnetting') ||
-      text.contains('prefix /') ||
-      text.contains('network address') ||
-      text.contains('broadcast address') ||
-      text.contains('host usable') ||
-      text.contains('subnet mask') ||
-      text.contains('ipv4') ||
-      text.contains('alamat ip') ||
-      text.contains('ip address') ||
-      text.contains('ip conflict')) {
+  // IP address dan subnetting.
+  if (text.contains('subnet') || text.contains('subnetting') ||
+      text.contains('prefix /') || text.contains('network address') ||
+      text.contains('broadcast address') || text.contains('host usable') ||
+      text.contains('subnet mask') || text.contains('ipv4') ||
+      text.contains('alamat ip') || text.contains('ip address') ||
+      RegExp(r'\b/\d+\b').hasMatch(text)) {
     return 'assets/images/game_zone/subnet.png';
   }
 
-  // Tidak memakai gambar yang tidak sesuai dengan soal.
   return null;
 }
 

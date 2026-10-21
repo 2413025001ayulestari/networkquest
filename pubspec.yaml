@@ -31,6 +31,6 @@ flutter:
     - assets/images/
     - assets/images/map_reference.png
     - assets/images/network_quest_splash.png
-    - assets/audio/sound_tab_layar.wav
     - assets/images/game_zone/
     - assets/images/questions/
+    - assets/audio/
