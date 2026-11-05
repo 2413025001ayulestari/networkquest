@@ -14,7 +14,10 @@ class GameZone extends StatefulWidget {
 }
 
 class _GameZoneState extends State<GameZone> {
-  // Lima soal yang tersedia dalam permainan.
+  // ============================================================
+  // SOAL GAME ZONE
+  // ============================================================
+
   static const Map<String, String> words = {
     'ROUTER': 'Penghubung antarjaringan',
     'SWITCH': 'Penghubung perangkat di LAN',
@@ -23,7 +26,10 @@ class _GameZoneState extends State<GameZone> {
     'SERVER': 'Penyedia layanan dalam jaringan',
   };
 
-  // Gambar untuk setiap soal.
+  // ============================================================
+  // GAMBAR SOAL
+  // ============================================================
+
   static const Map<String, String> images = {
     'ROUTER': 'assets/images/game_zone/router.png',
     'SWITCH': 'assets/images/game_zone/switch.png',
@@ -34,8 +40,6 @@ class _GameZoneState extends State<GameZone> {
 
   late String word;
   late List<String> letters;
-
-  // Urutan soal diacak satu kali agar tidak berulang.
   late List<String> questionOrder;
 
   int round = 0;
@@ -43,38 +47,167 @@ class _GameZoneState extends State<GameZone> {
 
   String answer = '';
 
-  // Menyimpan indeks tombol huruf yang telah dipilih.
   final List<int> selectedIndices = [];
 
   bool isChecking = false;
   bool isCorrect = false;
+  bool _isFinishingRound = false;
+
+  // ============================================================
+  // AUDIO PLAYER
+  // ============================================================
+
+  final AudioPlayer _gameZonePlayer = AudioPlayer();
+  final AudioPlayer _effectPlayer = AudioPlayer();
+
+  bool _isMusicPlaying = false;
+  bool _isMusicPrepared = false;
+  bool _isAudioDisposed = false;
+
+  // ============================================================
+  // INIT STATE
+  // ============================================================
 
   @override
   void initState() {
     super.initState();
 
-    // Acak kelima soal satu kali ketika permainan dimulai.
     questionOrder = words.keys.toList()..shuffle();
 
     newWord();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _playGameZoneMusic();
+    });
   }
 
-  // Mengambil soal berdasarkan ronde.
+  // ============================================================
+  // SOAL BARU
+  // ============================================================
+
   void newWord() {
     word = questionOrder[round];
 
-    // Huruf pilihan diacak untuk setiap soal.
     letters = word.split('')..shuffle();
 
     answer = '';
+
     selectedIndices.clear();
+
     isChecking = false;
     isCorrect = false;
   }
 
-  // Memilih huruf berdasarkan indeks tombol.
-  void tap(int index) {
+  // ============================================================
+  // MUSIK GAME ZONE
+  // ============================================================
+
+  Future<void> _playGameZoneMusic() async {
+    if (!mounted ||
+        _isAudioDisposed ||
+        !widget.store.sound ||
+        _isMusicPlaying) {
+      return;
+    }
+
+    try {
+      if (!_isMusicPrepared) {
+        await _gameZonePlayer.setReleaseMode(
+          ReleaseMode.loop,
+        );
+
+        await _gameZonePlayer.setVolume(1.0);
+
+        await _gameZonePlayer.setSource(
+          AssetSource('audio/sound_gamezone.mp3'),
+        );
+
+        _isMusicPrepared = true;
+      }
+
+      if (!mounted || _isAudioDisposed) return;
+
+      await _gameZonePlayer.resume();
+
+      _isMusicPlaying = true;
+
+      debugPrint('MUSIK GAME ZONE BERJALAN');
+    } catch (e) {
+      _isMusicPlaying = false;
+      debugPrint('ERROR MUSIK GAME ZONE: $e');
+    }
+  }
+
+  // ============================================================
+  // PAUSE MUSIK GAME ZONE
+  // ============================================================
+
+  Future<void> _stopGameZoneMusic() async {
+    try {
+      if (_isMusicPlaying && !_isAudioDisposed) {
+        await _gameZonePlayer.pause();
+
+        _isMusicPlaying = false;
+      }
+
+      debugPrint('MUSIK GAME ZONE DI-PAUSE');
+    } catch (e) {
+      debugPrint('ERROR PAUSE MUSIK: $e');
+    }
+  }
+
+  // ============================================================
+  // SOUND EFFECT BENAR / SALAH
+  // ============================================================
+
+  Future<void> _playEffectAndWait(String fileName) async {
+    if (!mounted ||
+        _isAudioDisposed ||
+        !widget.store.sound) {
+      return;
+    }
+
+    try {
+      await _effectPlayer.stop();
+
+      await _effectPlayer.setReleaseMode(
+        ReleaseMode.stop,
+      );
+
+      await _effectPlayer.setVolume(1.0);
+
+      final completed = _effectPlayer.onPlayerComplete.first;
+
+      await _effectPlayer.play(
+        AssetSource('audio/$fileName'),
+      );
+
+      debugPrint('SOUND EFFECT DIPUTAR: $fileName');
+
+      await completed.timeout(
+        const Duration(seconds: 30),
+      );
+
+      debugPrint('SOUND EFFECT SELESAI');
+    } catch (e) {
+      debugPrint('ERROR SOUND EFFECT: $e');
+
+      try {
+        if (!_isAudioDisposed) {
+          await _effectPlayer.stop();
+        }
+      } catch (_) {}
+    }
+  }
+
+  // ============================================================
+  // MEMILIH HURUF
+  // ============================================================
+
+  Future<void> tap(int index) async {
     if (isChecking ||
+        _isFinishingRound ||
         answer.length >= word.length ||
         selectedIndices.contains(index)) {
       return;
@@ -85,78 +218,137 @@ class _GameZoneState extends State<GameZone> {
       answer += letters[index];
     });
 
-    // Memeriksa jawaban setelah seluruh kotak terisi.
-    if (answer.length == word.length) {
-      setState(() {
-        isCorrect = answer == word;
-        isChecking = true;
+    // Musik tetap berjalan ketika memilih huruf.
+    if (answer.length != word.length) {
+      return;
+    }
 
-        if (isCorrect) {
-          score += 50;
-        }
-      });
+    setState(() {
+      isCorrect = answer == word;
+      isChecking = true;
 
-      Future.delayed(
-        const Duration(milliseconds: 900),
-        () {
-          if (!mounted) return;
+      if (isCorrect) {
+        score += 50;
+      }
+    });
 
-          if (round == questionOrder.length - 1) {
-            showDialog<void>(
-              context: context,
-              barrierDismissible: false,
-              builder: (dialogContext) {
-                return AlertDialog(
-                  backgroundColor: const Color(0xFF102A43),
-                  title: const Text(
-                    'GAME ZONE SELESAI',
-                    style: TextStyle(
-                      color: lime,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  content: Text(
-                    'Skor bonusmu: $score',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                    ),
-                  ),
-                  actions: [
-                    FilledButton(
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                        Navigator.pop(context);
-                      },
-                      child: const Text('SELESAI'),
-                    ),
-                  ],
-                );
-              },
+    await _finishRound();
+  }
+
+  // ============================================================
+  // PROSES JAWABAN
+  // ============================================================
+
+  Future<void> _finishRound() async {
+    if (_isFinishingRound) return;
+
+    _isFinishingRound = true;
+
+    try {
+      // Pause musik sebelum sound effect.
+      await _stopGameZoneMusic();
+
+      if (!mounted) return;
+
+      // Putar suara sesuai hasil jawaban.
+      if (isCorrect) {
+        await _playEffectAndWait(
+          'ketika_jawaban_benar.mp3',
+        );
+      } else {
+        await _playEffectAndWait(
+          'ketika_jawaban_salah.mp3',
+        );
+      }
+
+      if (!mounted) return;
+
+      // Lanjutkan musik dari posisi sebelumnya.
+      await _playGameZoneMusic();
+
+      if (!mounted) return;
+
+      // Soal terakhir.
+      if (round == questionOrder.length - 1) {
+        _isFinishingRound = false;
+
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF102A43),
+              title: const Text(
+                'GAME ZONE SELESAI',
+                style: TextStyle(
+                  color: lime,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              content: Text(
+                'Skor bonusmu: $score',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                ),
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () async {
+                    await _stopGameZoneMusic();
+
+                    if (!mounted) return;
+
+                    Navigator.pop(dialogContext);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('SELESAI'),
+                ),
+              ],
             );
-          } else {
-            setState(() {
-              round++;
-              newWord();
-            });
-          }
-        },
-      );
+          },
+        );
+      } else {
+        setState(() {
+          round++;
+          newWord();
+        });
+
+        _isFinishingRound = false;
+      }
+    } catch (e) {
+      debugPrint('ERROR PROSES JAWABAN: $e');
+
+      _isFinishingRound = false;
+
+      if (mounted) {
+        await _playGameZoneMusic();
+      }
     }
   }
 
-  // Menghapus jawaban dan mengaktifkan kembali semua huruf.
+  // ============================================================
+  // RESET JAWABAN
+  // ============================================================
+
   void resetAnswer() {
-    if (isChecking) return;
+    if (isChecking || _isFinishingRound) {
+      return;
+    }
 
     setState(() {
       answer = '';
       selectedIndices.clear();
       letters.shuffle();
     });
+
+    // Tidak menghentikan musik.
   }
 
-  // Gambar maskot sesuai pilihan pemain.
+  // ============================================================
+  // GAMBAR MASKOT
+  // ============================================================
+
   String get mascotImage {
     if (widget.store.mascot == 'PIXEL') {
       return 'assets/images/Foto Pixel.png';
@@ -164,6 +356,25 @@ class _GameZoneState extends State<GameZone> {
 
     return 'assets/images/Foto Netto.png';
   }
+
+  // ============================================================
+  // DISPOSE AUDIO
+  // ============================================================
+
+  @override
+  void dispose() {
+    _isAudioDisposed = true;
+    _isMusicPlaying = false;
+
+    _gameZonePlayer.dispose();
+    _effectPlayer.dispose();
+
+    super.dispose();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +386,7 @@ class _GameZoneState extends State<GameZone> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
+              // JUDUL
               const AppTitle(
                 'GAME ZONE',
                 'Susun istilah jaringan komputer',
@@ -182,7 +394,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 20),
 
-              // Informasi ronde dan skor.
+              // RONDE DAN SKOR
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -207,7 +419,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 18),
 
-              // Maskot pemain.
+              // MASKOT PEMAIN
               Center(
                 child: SizedBox(
                   width: 90,
@@ -232,7 +444,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 18),
 
-              // Gambar perangkat sesuai soal.
+              // GAMBAR PERANGKAT
               Container(
                 width: double.infinity,
                 height: 220,
@@ -303,7 +515,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 18),
 
-              // Petunjuk soal.
+              // PETUNJUK
               Text(
                 words[word]!,
                 textAlign: TextAlign.center,
@@ -327,7 +539,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 22),
 
-              // Kotak jawaban.
+              // KOTAK JAWABAN
               Container(
                 height: 60,
                 alignment: Alignment.center,
@@ -360,7 +572,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 12),
 
-              // Hasil pemeriksaan jawaban.
+              // HASIL JAWABAN
               if (isChecking)
                 Text(
                   isCorrect
@@ -376,7 +588,7 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 18),
 
-              // Pilihan huruf.
+              // PILIHAN HURUF
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 9,
@@ -385,29 +597,26 @@ class _GameZoneState extends State<GameZone> {
                   letters.length,
                   (index) {
                     final letter = letters[index];
-
-                    // Identitas tombol ditentukan oleh indeks.
-                    final used =
-                        selectedIndices.contains(index);
+                    final used = selectedIndices.contains(index);
 
                     return SizedBox(
                       width: 48,
                       height: 48,
                       child: FilledButton(
-                        onPressed: !used &&
-                                answer.length < word.length &&
-                                !isChecking
-                            ? () => tap(index)
-                            : null,
+                        onPressed:
+                            !used &&
+                                    answer.length < word.length &&
+                                    !isChecking &&
+                                    !_isFinishingRound
+                                ? () => tap(index)
+                                : null,
                         style: FilledButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          backgroundColor:
-                              const Color(0xFF176B87),
+                          backgroundColor: const Color(0xFF176B87),
                           disabledBackgroundColor:
                               const Color(0xFF263746),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: Text(
@@ -425,17 +634,23 @@ class _GameZoneState extends State<GameZone> {
 
               const SizedBox(height: 18),
 
-              // Tombol hapus jawaban.
+              // HAPUS JAWABAN
               OutlinedButton.icon(
                 onPressed:
-                    !isChecking ? resetAnswer : null,
+                    !isChecking && !_isFinishingRound
+                        ? resetAnswer
+                        : null,
                 icon: const Icon(
                   Icons.backspace_outlined,
                 ),
-                label: const Text('HAPUS JAWABAN'),
+                label: const Text(
+                  'HAPUS JAWABAN',
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: cyan,
-                  side: const BorderSide(color: cyan),
+                  side: const BorderSide(
+                    color: cyan,
+                  ),
                   padding: const EdgeInsets.symmetric(
                     vertical: 13,
                   ),

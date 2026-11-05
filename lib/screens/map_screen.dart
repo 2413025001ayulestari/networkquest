@@ -1,3 +1,4 @@
+
 part of '../main.dart';
 
 class MapScreen extends StatefulWidget {
@@ -30,10 +31,7 @@ class _MapScreenState extends State<MapScreen>
     Offset(.76, .325),
   ];
 
-  // Jalur perjalanan maskot mengikuti jalan berkelok pada peta.
-  // Koordinat menggunakan persentase lebar dan tinggi layar.
   static const List<List<Offset>> _routeSegments = [
-    // Level 1 -> Level 2
     [
       Offset(.47, .865),
       Offset(.40, .845),
@@ -45,8 +43,6 @@ class _MapScreenState extends State<MapScreen>
       Offset(.65, .755),
       Offset(.78, .745),
     ],
-
-    // Level 2 -> Level 3
     [
       Offset(.78, .745),
       Offset(.69, .725),
@@ -56,8 +52,6 @@ class _MapScreenState extends State<MapScreen>
       Offset(.31, .655),
       Offset(.24, .650),
     ],
-
-    // Level 3 -> Level 4
     [
       Offset(.24, .650),
       Offset(.31, .620),
@@ -68,8 +62,6 @@ class _MapScreenState extends State<MapScreen>
       Offset(.64, .525),
       Offset(.73, .515),
     ],
-
-    // Level 4 -> Level 5
     [
       Offset(.73, .515),
       Offset(.65, .495),
@@ -78,8 +70,6 @@ class _MapScreenState extends State<MapScreen>
       Offset(.36, .455),
       Offset(.27, .445),
     ],
-
-    // Level 5 -> Level 6
     [
       Offset(.27, .445),
       Offset(.32, .420),
@@ -90,8 +80,6 @@ class _MapScreenState extends State<MapScreen>
       Offset(.39, .295),
       Offset(.325, .270),
     ],
-
-    // Level 6 -> Level 7
     [
       Offset(.325, .270),
       Offset(.42, .270),
@@ -125,6 +113,20 @@ class _MapScreenState extends State<MapScreen>
     return 'assets/images/Foto Netto.png';
   }
 
+  // Memeriksa apakah level sudah pernah diselesaikan.
+  bool _isCompleted(int level) {
+    if (level < 1 || level > widget.store.stars.length) {
+      return false;
+    }
+
+    return widget.store.stars[level - 1] > 0;
+  }
+
+  // Memeriksa apakah level boleh dimainkan.
+  bool _isLevelAvailable(int level) {
+    return level <= _currentLevel || _isCompleted(level);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -134,7 +136,6 @@ class _MapScreenState extends State<MapScreen>
       duration: const Duration(milliseconds: 750),
     )..repeat(reverse: true);
 
-    // Durasi perjalanan dibuat lebih lama agar maskot terlihat berjalan.
     _moveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2600),
@@ -155,7 +156,6 @@ class _MapScreenState extends State<MapScreen>
       _previousLevel = _mascotLevel;
       _mascotLevel = nextLevel;
 
-      // Mulai animasi perjalanan saat level bertambah.
       _moveController.forward(from: 0);
     }
 
@@ -170,8 +170,6 @@ class _MapScreenState extends State<MapScreen>
     super.dispose();
   }
 
-  // Mengambil jalur perjalanan berdasarkan level sebelumnya
-  // dan level tujuan.
   List<Offset> _routeForMove() {
     if (_mascotLevel == _previousLevel) {
       return [_levelPoints[_mascotLevel - 1]];
@@ -186,16 +184,12 @@ class _MapScreenState extends State<MapScreen>
       return _routeSegments[start - 1];
     }
 
-    // Pengaman jika progres bertambah lebih dari satu level.
     return [
       _levelPoints[start - 1],
       _levelPoints[end - 1],
     ];
   }
 
-  // Menghitung posisi maskot sepanjang jalur.
-  // Maskot melewati titik-titik jalur, bukan bergerak
-  // lurus dari level awal menuju level tujuan.
   Offset _pointAlongRoute(
     List<Offset> route,
     double progress,
@@ -246,12 +240,26 @@ class _MapScreenState extends State<MapScreen>
     return route.last;
   }
 
+  // MEMBUKA LEVEL
   Future<void> _openLevel(int level) async {
-    if (level > _currentLevel) {
+    if (level < 1 || level > 7) return;
+
+    final bool completed = _isCompleted(level);
+    final bool unlocked = level <= _currentLevel;
+
+    debugPrint('LEVEL DIPILIH: $level');
+    debugPrint('LEVEL TERBUKA: $_currentLevel');
+    debugPrint('LEVEL SELESAI: $completed');
+    debugPrint('BINTANG: ${widget.store.stars[level - 1]}');
+
+    // Level yang belum terbuka dan belum pernah diselesaikan
+    // tetap tidak bisa dimainkan.
+    if (!unlocked && !completed) {
       _showLockedMessage(level);
       return;
     }
 
+    // Level yang sudah selesai tetap dapat dimainkan ulang.
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -327,7 +335,7 @@ class _MapScreenState extends State<MapScreen>
                   ),
                 ),
 
-                // LAPISAN GELAP TIPIS
+                // LAPISAN GELAP
                 Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(
@@ -416,7 +424,7 @@ class _MapScreenState extends State<MapScreen>
 
                 // GEMBOK LEVEL YANG BELUM TERBUKA
                 for (int i = 0; i < 7; i++)
-                  if (i + 1 > unlocked)
+                  if (!_isLevelAvailable(i + 1))
                     _buildLockOverlay(
                       level: i + 1,
                       mapWidth: mapWidth,
@@ -431,7 +439,7 @@ class _MapScreenState extends State<MapScreen>
                     mapHeight: mapHeight,
                   ),
 
-                // MASKOT BERGERAK MENGIKUTI JALUR
+                // MASKOT BERGERAK
                 AnimatedBuilder(
                   animation: Listenable.merge([
                     _bobController,
@@ -461,10 +469,7 @@ class _MapScreenState extends State<MapScreen>
 
                     return Positioned(
                       left: (x * mapWidth - mascotSize / 2)
-                          .clamp(
-                        0.0,
-                        mapWidth - mascotSize,
-                      ),
+                          .clamp(0.0, mapWidth - mascotSize),
                       top: (y * mapHeight -
                               mascotSize -
                               8 -

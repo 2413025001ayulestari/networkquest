@@ -145,7 +145,6 @@ class _QuizScreenState extends State<QuizScreen> {
       return;
     }
 
-    // Cegah tombol ditekan berulang kali saat proses berjalan.
     _processing = true;
 
     try {
@@ -289,6 +288,40 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   // ============================================================
+  // GAMBAR MASKOT
+  // ============================================================
+
+  String get mascotImage {
+    if (widget.store.mascot == 'PIXEL') {
+      return 'assets/images/Foto Pixel.png';
+    }
+
+    return 'assets/images/Foto Netto.png';
+  }
+
+  // ============================================================
+  // MENENTUKAN GAMBAR SOAL
+  // ============================================================
+
+  String get displayedImage {
+    // Level 3 selalu menggunakan gambar maskot.
+    if (widget.level == 3) {
+      return mascotImage;
+    }
+
+    // Ambil gambar soal jika tersedia.
+    final String? questionImage = qs[index].image;
+
+    // Jika gambar kosong atau null, gunakan maskot.
+    if (questionImage == null ||
+        questionImage.trim().isEmpty) {
+      return mascotImage;
+    }
+
+    return questionImage;
+  }
+
+  // ============================================================
   // DISPOSE AUDIO
   // ============================================================
 
@@ -411,7 +444,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
             const SizedBox(height: 22),
 
-            // GAMBAR SOAL
+            // GAMBAR SOAL ATAU MASKOT
 
             Center(
               child: Container(
@@ -429,46 +462,32 @@ class _QuizScreenState extends State<QuizScreen> {
                     width: 2,
                   ),
                 ),
-                child: q.image != null && q.image!.isNotEmpty
-                    ? Image.asset(
-                        q.image!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (
-                          context,
-                          error,
-                          stackTrace,
-                        ) {
-                          debugPrint(
-                            'Gagal memuat gambar: ${q.image}',
-                          );
-                          debugPrint('$error');
+                child: Image.asset(
+                  displayedImage,
+                  key: ValueKey(displayedImage),
+                  fit: BoxFit.contain,
+                  errorBuilder: (
+                    context,
+                    error,
+                    stackTrace,
+                  ) {
+                    debugPrint(
+                      'Gagal memuat gambar: $displayedImage',
+                    );
+                    debugPrint('$error');
 
-                          return Center(
-                            child: Text(
-                              'Gambar gagal dimuat.\n${q.image}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : const Center(
-                        child: Text(
-                          'Gambar soal belum tersedia.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontSize: 13,
-                          ),
+                    return const Center(
+                      child: Text(
+                        'Gambar gagal dimuat.',
+                        style: TextStyle(
+                          color: Colors.white70,
                         ),
                       ),
+                    );
+                  },
+                ),
               ),
             ),
-
-            const SizedBox(height: 20),
 
             // PERTANYAAN
 
